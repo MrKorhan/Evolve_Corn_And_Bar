@@ -25,7 +25,8 @@ public class CornController : MonoBehaviour
     [SerializeField] private Vector3 cornPartLocalScale; //0.3f;
     [SerializeField] private Vector3 punchScaleValue; //0.15f
     [SerializeField] private float punchScaleDuration = 0.25f;
-    [SerializeField] private float moveToSliderDuration = 0.75f;
+    [SerializeField] private float moveToSliderDelayDuration = 0.75f;
+    [SerializeField] private float moveToSliderDuration = 0.4f;
 
     [Header("INPUT SETTINGS")]
     [SerializeField] private KeyCode keyOne;
@@ -58,7 +59,7 @@ public class CornController : MonoBehaviour
         uiManager = GameManager.Instance.uiManager;
         sliderHandleTransform = GameManager.Instance.sliderHandleTransform;
         m_camera = GameManager.Instance.m_camera;
-        moveToSliderWait = new WaitForSeconds(moveToSliderDuration);
+        moveToSliderWait = new WaitForSeconds(moveToSliderDelayDuration);
     }
 
     private void Update()
@@ -224,7 +225,7 @@ public class CornController : MonoBehaviour
         {
             _rb.isKinematic = true;
             Vector3 targetPos = GetSliderHandlePosition(_transform.position);
-            Tween _cornPartTween = _transform.DOMove(targetPos, .4f);
+            Tween _cornPartTween = _transform.DOMove(targetPos, moveToSliderDuration);
             _cornPartTween.OnComplete(() =>
             {
                 uiManager.UpdateSlider(1);

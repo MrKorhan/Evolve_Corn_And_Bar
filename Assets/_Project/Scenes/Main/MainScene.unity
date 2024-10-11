@@ -114489,7 +114489,8 @@ MonoBehaviour:
   cornPartLocalScale: {x: 0.3, y: 0.3, z: 0.3}
   punchScaleValue: {x: 0.15, y: 0.15, z: 0.15}
   punchScaleDuration: 0.25
-  moveToSliderDuration: 1.2
+  moveToSliderDelayDuration: 0.75
+  moveToSliderDuration: 0.3
   keyOne: 49
   keyOneAmount: 1
   keyTwo: 50
