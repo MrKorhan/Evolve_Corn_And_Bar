@@ -13,8 +13,6 @@ public class CornController : MonoBehaviour
 
     [Header("LAYER SETTINGS")]
     [SerializeField] private int layerIndex = 0;
-    [SerializeField] private float layerChangePositionDuration = 0.25f;
-    [SerializeField] private float layerChangeRotationDuration = 0.25f;
     [SerializeField] private float floorTargetLocalYValue = 2.75f;
     [SerializeField] private float floorTargetLocalMoveDuration = 0.15f;
 
@@ -47,7 +45,6 @@ public class CornController : MonoBehaviour
     private UIManager uiManager;
     private Transform sliderHandleTransform;
     private Camera m_camera;
-    private Sequence layerChangeSequence;
     private List<Tween> cornPartTweenList = new List<Tween>();
     private int layerDifferentIndex = -1;
     private WaitForSeconds moveToSliderWait;
@@ -56,6 +53,7 @@ public class CornController : MonoBehaviour
     private void Start()
     {
         DOTween.Init();
+        DOTween.SetTweensCapacity(1000, 100);
         uiManager = GameManager.Instance.uiManager;
         sliderHandleTransform = GameManager.Instance.sliderHandleTransform;
         m_camera = GameManager.Instance.m_camera;
@@ -96,7 +94,7 @@ public class CornController : MonoBehaviour
         var _cornPart = cornsList[layerIndex].CornPartStructList[cornsList[layerIndex].CornPartCounter];
         _cornPart.Transform.parent = null;
         _cornPart.Rb.isKinematic = false;
-        //_cornPart.Rb.velocity = Vector3.zero;
+
         _cornPart.Transform.localScale = cornPartLocalScale;
         ApplyForceAndTorque(_cornPart.Rb, _cornPart.Transform);
         cornsList[layerIndex].CornPartCounter++;
@@ -153,55 +151,93 @@ public class CornController : MonoBehaviour
                     );
     }
 
+
     /// <summary>
     /// Layer degisimi
     /// </summary>
     private void LayerChange()
     {
-        layerChangeSequence = DOTween.Sequence();
-
         int stayIndex = GetPreviousIndex(layerIndex, cornsList.Count);
         int previousCounter = 0;
 
-        //cornPartTweenList.ForEach(x => x.Complete());
-        //cornPartTweenList.Clear();
-
         for (int i = 0; i < cornsList.Count; i++)
         {
+            // Eger bu layer `stayIndex` ise ozel islem yapilir
             if (i == stayIndex)
             {
-                Vector3 layerPos = cornsList[stayIndex].FloorsList[0].parent.localPosition;
-                layerPos.y = 0;
-                cornsList[stayIndex].FloorsList[0].parent.localPosition = layerPos;
+                // Layer pozisyonu sifirlanir
+                ResetLayerPosition(stayIndex);
 
-                var stayIndexMaterial = cornsList[stayIndex].CornPartStructList[0].Renderer.materials;
-                int previousLayerIndex = GetPreviousIndex(stayIndex, cornsList.Count);
-                cornsList[previousLayerIndex].CornPartStructList.ForEach(x => x.Renderer.materials = stayIndexMaterial);
+                // Material ayarlamasi yapilir
+                SetLayerMaterials(stayIndex);
                 continue;
             }
 
+            // Katmanlardaki objelerin pozisyon ve rotasyon ayarlamasi
             int nextIndex = (layerIndex + previousCounter) % cornsList.Count;
-            for (int j = 0; j < cornsList[i].CornPartStructList.Count; j++)
-            {
-                int _j = j;
-                cornsList[nextIndex].CornPartStructList[_j].Rb.isKinematic = true;
-                var _cornTransform = cornsList[nextIndex].CornPartStructList[_j].Transform;
-                _cornTransform.parent = cornsList[nextIndex].CornPartStructList[_j].Parent;
-                _cornTransform.localPosition = cornsList[previousCounter].CornPartStructList[_j].LocalPosition;
-                _cornTransform.eulerAngles = cornsList[previousCounter].CornPartStructList[_j].Rotation;
-                //_cornTransform.DOLocalMove(target, layerChangePositionDuration);
-                //layerChangeSequence.Join(_cornTransform.DORotate(cornsList[previousCounter].CornPartStructList[_j].Rotation, layerChangeRotationDuration));
-            }
+            UpdateCornPartTransforms(nextIndex, previousCounter);
 
+            // Yalnizca `previousCounter == 1` oldugunda Floor animasyonu yapilir
             if (previousCounter == 1)
             {
-                cornsList[nextIndex].FloorsList[0].DOLocalMoveY(floorTargetLocalYValue, floorTargetLocalMoveDuration).SetLoops(2, LoopType.Yoyo);
+                cornsList[nextIndex].FloorsList[0].DOLocalMoveY(floorTargetLocalYValue, floorTargetLocalMoveDuration)
+                    .SetLoops(2, LoopType.Yoyo);
             }
             previousCounter++;
         }
     }
 
 
+
+    /// <summary>
+    /// Katmanin pozisyonunu sifirlayan metot
+    /// </summary>
+    /// <param name="stayIndex"></param>
+    private void ResetLayerPosition(int stayIndex)
+    {
+        Vector3 layerPos = cornsList[stayIndex].FloorsList[0].parent.localPosition;
+        layerPos.y = 0;
+        cornsList[stayIndex].FloorsList[0].parent.localPosition = layerPos;
+    }
+
+
+    /// <summary>
+    /// Katmanýn materyallerini ayarlayan metot
+    /// </summary>
+    /// <param name="stayIndex"></param>
+    private void SetLayerMaterials(int stayIndex)
+    {
+        var stayIndexMaterial = cornsList[stayIndex].CornPartStructList[0].Renderer.materials;
+        int previousLayerIndex = GetPreviousIndex(stayIndex, cornsList.Count);
+        cornsList[previousLayerIndex].CornPartStructList.ForEach(x => x.Renderer.materials = stayIndexMaterial);
+    }
+
+
+    /// <summary>
+    /// CornPart'larin pozisyon ve rotasyonunu guncelleyen metot
+    /// </summary>
+    /// <param name="nextIndex"></param>
+    /// <param name="previousCounter"></param>
+    private void UpdateCornPartTransforms(int nextIndex, int previousCounter)
+    {
+        for (int j = 0; j < cornsList[nextIndex].CornPartStructList.Count; j++)
+        {
+            var cornPart = cornsList[nextIndex].CornPartStructList[j];
+            cornPart.Rb.isKinematic = true;
+            var cornTransform = cornPart.Transform;
+            cornTransform.parent = cornPart.Parent;
+            cornTransform.localPosition = cornsList[previousCounter].CornPartStructList[j].LocalPosition;
+            cornTransform.eulerAngles = cornsList[previousCounter].CornPartStructList[j].Rotation;
+        }
+    }
+
+
+    /// <summary>
+    /// Donguye gore bir onceki indexi alir
+    /// </summary>
+    /// <param name="index"></param>
+    /// <param name="count"></param>
+    /// <returns></returns>
     public int GetPreviousIndex(int index, int count)
     {
         // Modüler aritmetik ile bir önceki indeksi döndür
@@ -237,7 +273,11 @@ public class CornController : MonoBehaviour
         });
     }
 
-
+    /// <summary>
+    /// Slider'in dunya pozisyonunu dondur.
+    /// </summary>
+    /// <param name="target"></param>
+    /// <returns></returns>
     private Vector3 GetSliderHandlePosition(Vector3 target)
     {
         Vector3 uiPos = sliderHandleTransform.position;
